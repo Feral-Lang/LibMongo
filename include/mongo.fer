@@ -1,0 +1,24 @@
+loadlib('mongo/Mongo');
+
+let map = import('std/map');
+let bson = import('mongo/bson');
+
+# let getDatabaseNamesX in MongoCollectionTy = fn() {
+#     let dbNames = vec.new();
+#     for db in self.getDatabases().each() {
+#         dbNames.push(db.getName());
+#     }
+#     return dbNames;
+# };
+
+let getDatabaseNames in MongoClientTy = fn(opts = nil) {
+    return self.getDatabaseNamesNative(opts ? opts.bson() : opts);
+};
+
+let find in MongoCollectionTy = fn(filter = map.new(), opts = nil) {
+    return self.findWithOpts(filter.bson(), opts ? opts.bson() : opts);
+};
+
+let len in MongoCollectionTy = fn(filter = map.new(), opts = nil) {
+    return self.lenNative(filter.bson(), opts ? opts.bson() : opts);
+};

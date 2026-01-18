@@ -1,0 +1,21 @@
+let io = import('std/io');
+let os = import('std/os');
+let map = import('std/map');
+let json = import('std/json');
+let mongo = import('mongo/mongo');
+
+let MONGO_USER = os.getEnv('MONGO_USER');
+let MONGO_PASS = os.getEnv('MONGO_PASS');
+let MONGO_URL = os.getEnv('MONGO_URL');
+
+let database = 'komodo';
+let collection = 'Server';
+
+let client = mongo.newClient('mongodb://' + MONGO_USER + ':' + MONGO_PASS + '@' + MONGO_URL);
+let collection = client.getCollection(database, collection);
+io.println('collection: ', collection.getDatabaseName(), '->', collection.getName(), '; len: ', collection.len(map.new()));
+io.println('--------------------');
+let items = collection.find(map.new());
+for item in items.each() {
+    io.println(item);
+}

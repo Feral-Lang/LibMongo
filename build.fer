@@ -1,0 +1,15 @@
+let builder = import('pkg/builder');
+
+let project = builder.get();
+
+let libBson = project.findPackage('bson');
+libBson.setTargetLinkName('bson::bson');
+
+let libMongo = project.findPackage('mongoc');
+libMongo.setTargetLinkName('mongoc::mongoc');
+
+let feralBson = project.addLibrary('Bson', 'Bson.cpp'); # `src/` is not needed here
+feralBson.dependsOn(libBson);
+
+let feralMongo = project.addLibrary('Mongo', 'Mongo.cpp'); # `src/` is not needed here
+feralMongo.dependsOn(libMongo, feralBson);

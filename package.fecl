@@ -1,0 +1,6 @@
+author = 'Electrux';
+name = 'Mongo';
+version = '0.0.1';
+description = 'Mongo DB (and BSON) bindings for Feral using the Mongo-C-Driver library.';
+source = 'https://github.com/Feral-Lang/LibMongo';
+depends = {};

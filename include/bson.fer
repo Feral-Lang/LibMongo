@@ -1,0 +1,23 @@
+loadlib('mongo/Bson');
+
+let json = import('std/json');
+
+let bson in VecTy = fn() {
+    let builder = newArrayBuilder();
+    for e in self.each() {
+        builder.append(e);
+    }
+    return builder.build();
+};
+
+let bson in MapTy = fn() {
+    let bs = new();
+    for e in self.each() {
+        bs.append(e.0, e.1);
+    }
+    return bs;
+};
+
+let json in BsonTy = fn() {
+    return json.loads(self.str());
+};
