@@ -119,8 +119,191 @@ Var *clientGetCollection(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.makeVar<VarMongoCollection>(loc, client, db, coll);
 }
 
-Var *collectionFindWithOpts(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                            const StringMap<AssnArgData> &assnArgs)
+Var *collectionInsertOne(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
+                         const StringMap<AssnArgData> &assnArgs)
+{
+    if(!args[1]->is<VarBson>()) {
+        vm.fail(loc, "expected a map as the data to insert, found: ", vm.getTypeName(args[1]));
+        return nullptr;
+    }
+    VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
+    const bson_t *doc        = as<VarBson>(args[1])->getVal();
+    const bson_t *opts       = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
+    bson_error_t berr;
+    if(!mongoc_collection_insert_one(coll->getVal(), doc, opts, nullptr, &berr)) {
+        size_t len = 0;
+        char *bs   = bson_as_canonical_extended_json(doc, &len);
+        vm.fail(loc, "failed to insert document `", bs,
+                "` in collection: ", mongoc_collection_get_name(coll->getVal()),
+                "; mongo err: ", berr.message);
+        bson_free(bs);
+        return nullptr;
+    }
+    return vm.getNil();
+}
+
+Var *collectionInsertMany(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
+                          const StringMap<AssnArgData> &assnArgs)
+{
+    if(!args[1]->is<VarVec>()) {
+        vm.fail(loc, "expected a vector of maps as the data to insert, found: ",
+                vm.getTypeName(args[1]));
+        return nullptr;
+    }
+    VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
+    VarVec *docsVec          = as<VarVec>(args[1]);
+    size_t docsCount         = docsVec->size();
+    const bson_t **docs =
+        (const bson_t **)vm.getMemoryManager().alloc(docsVec->size(), alignof(_bson_t));
+    for(size_t i = 0; i < docsCount; ++i) { docs[i] = as<VarBson>(docsVec->at(i))->getVal(); }
+    const bson_t *opts = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
+    bson_error_t berr;
+    if(!mongoc_collection_insert_many(coll->getVal(), docs, docsCount, opts, nullptr, &berr)) {
+        vm.fail(loc, "failed to insert document list in collection: ",
+                mongoc_collection_get_name(coll->getVal()), "; mongo err: ", berr.message);
+        vm.getMemoryManager().free(docs);
+        return nullptr;
+    }
+    vm.getMemoryManager().free(docs);
+    return vm.getNil();
+}
+
+Var *collectionReplace(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
+                       const StringMap<AssnArgData> &assnArgs)
+{
+    if(!args[1]->is<VarBson>()) {
+        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
+        return nullptr;
+    }
+    if(!args[2]->is<VarBson>()) {
+        vm.fail(loc, "expected a map as the new data, found: ", vm.getTypeName(args[2]));
+        return nullptr;
+    }
+    VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
+    const bson_t *filter     = as<VarBson>(args[1])->getVal();
+    const bson_t *data       = as<VarBson>(args[2])->getVal();
+    const bson_t *opts       = args[3]->is<VarBson>() ? as<VarBson>(args[3])->getVal() : nullptr;
+    bson_error_t berr;
+    if(!mongoc_collection_replace_one(coll->getVal(), filter, data, opts, nullptr, &berr)) {
+        size_t lenFilter = 0, lenData = 0;
+        char *bsFilter = bson_as_canonical_extended_json(filter, &lenFilter);
+        char *bsData   = bson_as_canonical_extended_json(data, &lenData);
+        vm.fail(loc, "failed to replace document `", bsData, "` in collection `",
+                mongoc_collection_get_name(coll->getVal()), "` using `", bsFilter,
+                "` as the filter; mongo err: ", berr.message);
+        bson_free(bsData);
+        bson_free(bsFilter);
+        return nullptr;
+    }
+    return vm.getNil();
+}
+
+Var *collectionUpdateOne(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
+                         const StringMap<AssnArgData> &assnArgs)
+{
+    if(!args[1]->is<VarBson>()) {
+        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
+        return nullptr;
+    }
+    if(!args[2]->is<VarBson>()) {
+        vm.fail(loc, "expected a map as the new data, found: ", vm.getTypeName(args[2]));
+        return nullptr;
+    }
+    VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
+    const bson_t *filter     = as<VarBson>(args[1])->getVal();
+    const bson_t *data       = as<VarBson>(args[2])->getVal();
+    const bson_t *opts       = args[3]->is<VarBson>() ? as<VarBson>(args[3])->getVal() : nullptr;
+    bson_error_t berr;
+    if(!mongoc_collection_update_one(coll->getVal(), filter, data, opts, nullptr, &berr)) {
+        size_t lenFilter = 0, lenData = 0;
+        char *bsFilter = bson_as_canonical_extended_json(filter, &lenFilter);
+        char *bsData   = bson_as_canonical_extended_json(data, &lenData);
+        vm.fail(loc, "failed to update document `", bsData, "` in collection `",
+                mongoc_collection_get_name(coll->getVal()), "` using `", bsFilter,
+                "` as the filter; mongo err: ", berr.message);
+        bson_free(bsData);
+        bson_free(bsFilter);
+        return nullptr;
+    }
+    return vm.getNil();
+}
+
+Var *collectionUpdateMany(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
+                          const StringMap<AssnArgData> &assnArgs)
+{
+    if(!args[1]->is<VarBson>()) {
+        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
+        return nullptr;
+    }
+    if(!args[2]->is<VarBson>()) {
+        vm.fail(loc, "expected a map as the new data, found: ", vm.getTypeName(args[2]));
+        return nullptr;
+    }
+    VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
+    const bson_t *filter     = as<VarBson>(args[1])->getVal();
+    const bson_t *data       = as<VarBson>(args[2])->getVal();
+    const bson_t *opts       = args[3]->is<VarBson>() ? as<VarBson>(args[3])->getVal() : nullptr;
+    bson_error_t berr;
+    if(!mongoc_collection_update_many(coll->getVal(), filter, data, opts, nullptr, &berr)) {
+        size_t lenFilter = 0, lenData = 0;
+        char *bsFilter = bson_as_canonical_extended_json(filter, &lenFilter);
+        char *bsData   = bson_as_canonical_extended_json(data, &lenData);
+        vm.fail(loc, "failed to update document `", bsData, "` in collection `",
+                mongoc_collection_get_name(coll->getVal()), "` using `", bsFilter,
+                "` as the filter; mongo err: ", berr.message);
+        bson_free(bsData);
+        bson_free(bsFilter);
+        return nullptr;
+    }
+    return vm.getNil();
+}
+
+Var *collectionDeleteOne(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
+                         const StringMap<AssnArgData> &assnArgs)
+{
+    if(!args[1]->is<VarBson>()) {
+        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
+        return nullptr;
+    }
+    VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
+    const bson_t *filter     = as<VarBson>(args[1])->getVal();
+    const bson_t *opts       = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
+    bson_error_t berr;
+    if(!mongoc_collection_delete_one(coll->getVal(), filter, opts, nullptr, &berr)) {
+        size_t len = 0;
+        char *bs   = bson_as_canonical_extended_json(filter, &len);
+        vm.fail(loc, "failed to delete document using filter `", bs, "` in collection `",
+                mongoc_collection_get_name(coll->getVal()), "; mongo err: ", berr.message);
+        bson_free(bs);
+        return nullptr;
+    }
+    return vm.getNil();
+}
+
+Var *collectionDeleteMany(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
+                          const StringMap<AssnArgData> &assnArgs)
+{
+    if(!args[1]->is<VarBson>()) {
+        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
+        return nullptr;
+    }
+    VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
+    const bson_t *filter     = as<VarBson>(args[1])->getVal();
+    const bson_t *opts       = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
+    bson_error_t berr;
+    if(!mongoc_collection_delete_many(coll->getVal(), filter, opts, nullptr, &berr)) {
+        size_t len = 0;
+        char *bs   = bson_as_canonical_extended_json(filter, &len);
+        vm.fail(loc, "failed to delete document using filter `", bs, "` in collection `",
+                mongoc_collection_get_name(coll->getVal()), "; mongo err: ", berr.message);
+        bson_free(bs);
+        return nullptr;
+    }
+    return vm.getNil();
+}
+
+Var *collectionFind(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
+                    const StringMap<AssnArgData> &assnArgs)
 {
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     if(!args[1]->is<VarBson>()) {
@@ -212,7 +395,14 @@ INIT_MODULE(Mongo)
     vm.addNativeTypeFn<VarMongoClient>(loc, "getDatabaseNamesNative", clientGetDatabaseNames, 1);
     vm.addNativeTypeFn<VarMongoClient>(loc, "getCollection", clientGetCollection, 2);
 
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "findWithOpts", collectionFindWithOpts, 2);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "insertOneNative", collectionInsertOne, 2);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "insertManyNative", collectionInsertMany, 2);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "replaceNative", collectionReplace, 3);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "updateOneNative", collectionUpdateOne, 3);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "updateManyNative", collectionUpdateMany, 3);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "deleteOneNative", collectionDeleteOne, 2);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "deleteManyNative", collectionDeleteMany, 2);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "findNative", collectionFind, 2);
     vm.addNativeTypeFn<VarMongoCollection>(loc, "getName", collectionGetName, 0);
     vm.addNativeTypeFn<VarMongoCollection>(loc, "getDatabaseName", collectionGetDatabaseName, 0);
     vm.addNativeTypeFn<VarMongoCollection>(loc, "lenNative", collectionLen, 2);

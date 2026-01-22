@@ -1,6 +1,7 @@
 loadlib('mongo/Mongo');
 
 let map = import('std/map');
+let vec = import('std/vec');
 let bson = import('mongo/bson');
 
 # let getDatabaseNamesX in MongoCollectionTy = fn() {
@@ -15,8 +16,47 @@ let getDatabaseNames in MongoClientTy = fn(opts = nil) {
     return self.getDatabaseNamesNative(opts ? opts.bson() : opts);
 };
 
+# data => a map
+let insertOne in MongoCollectionTy = fn(data, opts = nil) {
+    return self.insertOneNative(data.bson(), opts ? opts.bson() : opts);
+};
+
+# data => a vector of maps
+let insertMany in MongoCollectionTy = fn(data, opts = nil) {
+    let bsonList = vec.new(refs = true);
+    for e in data.each() {
+        bsonList.push(e.bson());
+    }
+    return self.insertManyNative(bsonList, opts ? opts.bson() : opts);
+};
+
+# data => a map
+let replace in MongoCollectionTy = fn(filter, data, opts = nil) {
+    return self.replaceNative(filter.bson(), data.bson(), opts ? opts.bson() : opts);
+};
+
+# data => a map
+let updateOne in MongoCollectionTy = fn(filter, data, opts = nil) {
+    return self.updateOneNative(filter.bson(), data.bson(), opts ? opts.bson() : opts);
+};
+
+# data => a vector of maps
+let updateMany in MongoCollectionTy = fn(filter, data, opts = nil) {
+    return self.updateManyNative(filter.bson(), data.bson(), opts ? opts.bson() : opts);
+};
+
+# data => a map
+let deleteOne in MongoCollectionTy = fn(filter, opts = nil) {
+    return self.deleteOneNative(filter.bson(), opts ? opts.bson() : opts);
+};
+
+# data => a vector of maps
+let deleteMany in MongoCollectionTy = fn(filter, opts = nil) {
+    return self.deleteManyNative(filter.bson(), opts ? opts.bson() : opts);
+};
+
 let find in MongoCollectionTy = fn(filter = map.new(), opts = nil) {
-    return self.findWithOpts(filter.bson(), opts ? opts.bson() : opts);
+    return self.findNative(filter.bson(), opts ? opts.bson() : opts);
 };
 
 let len in MongoCollectionTy = fn(filter = map.new(), opts = nil) {

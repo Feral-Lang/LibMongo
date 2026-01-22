@@ -1,6 +1,7 @@
 let io = import('std/io');
 let os = import('std/os');
 let map = import('std/map');
+let vec = import('std/vec');
 let json = import('std/json');
 let mongo = import('mongo/mongo');
 
@@ -8,14 +9,50 @@ let MONGO_USER = os.getEnv('MONGO_USER');
 let MONGO_PASS = os.getEnv('MONGO_PASS');
 let MONGO_URL = os.getEnv('MONGO_URL');
 
-let database = 'komodo';
-let collection = 'Server';
+let database = 'test';
+let collection = 'test';
 
 let client = mongo.newClient('mongodb://' + MONGO_USER + ':' + MONGO_PASS + '@' + MONGO_URL);
 let collection = client.getCollection(database, collection);
 io.println('collection: ', collection.getDatabaseName(), '->', collection.getName(), '; len: ', collection.len(map.new()));
-io.println('--------------------');
+io.println('---------------------------------------');
+
+io.println('------------- delete all --------------');
+collection.deleteMany(map.new());
+
+io.println('------------- insert one --------------');
+collection.insertOne(map.new('key', 'key1', 'val', 'val1'));
+
+io.println('------------- insert many -------------');
+let v = vec.new(refs = true,
+                map.new('key', 'key2', 'val', 'val5'), # used in replace
+                map.new('key', 'key3', 'val', 'val6'), # used in updateOne
+                map.new('key', 'key4', 'val', 'val7'), # used in updateMany & deleteOne
+                map.new('key', 'key4', 'val', 'val7'), # used in updateMany
+                map.new('key', 'key5', 'val', 'val8'), # used in deleteMany
+                map.new('key', 'key5', 'val', 'val8')  # used in deleteMany
+);
+collection.insertMany(v);
+
+io.println('--------------- replace ---------------');
+collection.replace(map.new('val', 'val5'), map.new('key', 'key2', 'val', 'val2'));
+
+io.println('------------- update one --------------');
+collection.updateOne(map.new('key', 'key3'), map.new('$set', map.new('val', 'val3')));
+
+io.println('------------- update many -------------');
+collection.updateMany(map.new('key', 'key4'), map.new('$set', map.new('val', 'val4')));
+
+io.println('------------- delete one --------------');
+collection.deleteOne(map.new('key', 'key4'));
+
+io.println('------------- delete many -------------');
+collection.deleteMany(map.new('key', 'key5'));
+
+io.println('---------------------------------------');
 let items = collection.find(map.new());
 for item in items.each() {
     io.println(item);
 }
+io.println('---------------------------------------');
+io.println('collection: ', collection.getDatabaseName(), '->', collection.getName(), '; len: ', collection.len(map.new()));
