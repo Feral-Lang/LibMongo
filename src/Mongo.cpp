@@ -75,18 +75,15 @@ bool VarMongoCursorIter::next(const bson_t *&res, bson_error_t *bErr)
 /////////////////////////////////////////// Functions ////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-Var *newClient(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-               const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(newClient, 1, false,
+           "  fn(uri) -> MongoClient\n"
+           "Creates and returns a connection to the MongoDB `url`.")
 {
-    if(!args[1]->is<VarStr>()) {
-        vm.fail(loc, "expected a string for the connection uri, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
+    EXPECT(VarStr, args[1], "connection uri");
     return vm.makeVar<VarMongoClient>(loc, as<VarStr>(args[1])->getVal().c_str());
 }
 
-Var *clientGetDatabaseNames(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                            const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(clientGetDatabaseNamesNative, 0, false, "")
 {
     VarMongoClient *client = as<VarMongoClient>(args[0]);
     const bson_t *opts     = args[1]->is<VarBson>() ? as<VarBson>(args[1])->getVal() : nullptr;
@@ -102,30 +99,22 @@ Var *clientGetDatabaseNames(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return res;
 }
 
-Var *clientGetCollection(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                         const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(clientGetCollection, 2, false,
+           "  var.fn(dbName, collectionName) -> MongoCollection\n"
+           "Returns the MongoCollection for the given `dbName` and `collectionName` from within "
+           "MongoClient `var`.")
 {
-    if(!args[1]->is<VarStr>()) {
-        vm.fail(loc, "expected a string for the database, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
-    if(!args[2]->is<VarStr>()) {
-        vm.fail(loc, "expected a string for the collection, found: ", vm.getTypeName(args[2]));
-        return nullptr;
-    }
+    EXPECT(VarStr, args[1], "database name");
+    EXPECT(VarStr, args[2], "collection name");
     VarMongoClient *client = as<VarMongoClient>(args[0]);
     StringRef db           = as<VarStr>(args[1])->getVal();
     StringRef coll         = as<VarStr>(args[2])->getVal();
     return vm.makeVar<VarMongoCollection>(loc, client, db, coll);
 }
 
-Var *collectionInsertOne(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                         const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionInsertOneNative, 2, false, "")
 {
-    if(!args[1]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the data to insert, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
+    EXPECT(VarBson, args[1], "map representing the data");
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     const bson_t *doc        = as<VarBson>(args[1])->getVal();
     const bson_t *opts       = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
@@ -142,43 +131,31 @@ Var *collectionInsertOne(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.getNil();
 }
 
-Var *collectionInsertMany(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                          const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionInsertManyNative, 2, false, "")
 {
-    if(!args[1]->is<VarVec>()) {
-        vm.fail(loc, "expected a vector of maps as the data to insert, found: ",
-                vm.getTypeName(args[1]));
-        return nullptr;
-    }
+    EXPECT(VarVec, args[1], "maps of data to insert");
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     VarVec *docsVec          = as<VarVec>(args[1]);
     size_t docsCount         = docsVec->size();
     const bson_t **docs =
-        (const bson_t **)vm.getMemoryManager().alloc(docsVec->size(), alignof(_bson_t));
+        (const bson_t **)vm.getMemoryManager().allocRaw(docsVec->size(), alignof(_bson_t));
     for(size_t i = 0; i < docsCount; ++i) { docs[i] = as<VarBson>(docsVec->at(i))->getVal(); }
     const bson_t *opts = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
     bson_error_t berr;
     if(!mongoc_collection_insert_many(coll->getVal(), docs, docsCount, opts, nullptr, &berr)) {
         vm.fail(loc, "failed to insert document list in collection: ",
                 mongoc_collection_get_name(coll->getVal()), "; mongo err: ", berr.message);
-        vm.getMemoryManager().free(docs);
+        vm.getMemoryManager().freeRaw(docs);
         return nullptr;
     }
-    vm.getMemoryManager().free(docs);
+    vm.getMemoryManager().freeRaw(docs);
     return vm.getNil();
 }
 
-Var *collectionReplace(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                       const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionReplaceNative, 3, false, "")
 {
-    if(!args[1]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
-    if(!args[2]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the new data, found: ", vm.getTypeName(args[2]));
-        return nullptr;
-    }
+    EXPECT(VarBson, args[1], "map representing the filter");
+    EXPECT(VarBson, args[2], "map representing the new data");
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     const bson_t *filter     = as<VarBson>(args[1])->getVal();
     const bson_t *data       = as<VarBson>(args[2])->getVal();
@@ -198,17 +175,10 @@ Var *collectionReplace(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.getNil();
 }
 
-Var *collectionUpdateOne(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                         const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionUpdateOneNative, 3, false, "")
 {
-    if(!args[1]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
-    if(!args[2]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the new data, found: ", vm.getTypeName(args[2]));
-        return nullptr;
-    }
+    EXPECT(VarBson, args[1], "map representing the filter");
+    EXPECT(VarBson, args[2], "map representing the new data");
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     const bson_t *filter     = as<VarBson>(args[1])->getVal();
     const bson_t *data       = as<VarBson>(args[2])->getVal();
@@ -228,17 +198,10 @@ Var *collectionUpdateOne(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.getNil();
 }
 
-Var *collectionUpdateMany(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                          const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionUpdateManyNative, 3, false, "")
 {
-    if(!args[1]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
-    if(!args[2]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the new data, found: ", vm.getTypeName(args[2]));
-        return nullptr;
-    }
+    EXPECT(VarBson, args[1], "map representing the filter");
+    EXPECT(VarBson, args[2], "map representing the new data");
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     const bson_t *filter     = as<VarBson>(args[1])->getVal();
     const bson_t *data       = as<VarBson>(args[2])->getVal();
@@ -258,13 +221,9 @@ Var *collectionUpdateMany(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.getNil();
 }
 
-Var *collectionDeleteOne(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                         const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionDeleteOneNative, 2, false, "")
 {
-    if(!args[1]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
+    EXPECT(VarBson, args[1], "map representing the filter");
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     const bson_t *filter     = as<VarBson>(args[1])->getVal();
     const bson_t *opts       = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
@@ -280,13 +239,9 @@ Var *collectionDeleteOne(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.getNil();
 }
 
-Var *collectionDeleteMany(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                          const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionDeleteManyNative, 2, false, "")
 {
-    if(!args[1]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
+    EXPECT(VarBson, args[1], "map representing the filter");
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     const bson_t *filter     = as<VarBson>(args[1])->getVal();
     const bson_t *opts       = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
@@ -302,16 +257,12 @@ Var *collectionDeleteMany(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.getNil();
 }
 
-Var *collectionFind(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                    const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionFindNative, 2, false, "")
 {
+    EXPECT(VarBson, args[1], "map representing the filter");
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
-    if(!args[1]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
-    const bson_t *filter = as<VarBson>(args[1])->getVal();
-    const bson_t *opts   = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
+    const bson_t *filter     = as<VarBson>(args[1])->getVal();
+    const bson_t *opts       = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
     mongoc_cursor_t *cursor =
         mongoc_collection_find_with_opts(coll->getVal(), filter, opts, nullptr);
     if(!cursor) {
@@ -321,27 +272,25 @@ Var *collectionFind(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.makeVar<VarMongoCursor>(loc, coll, cursor);
 }
 
-Var *collectionGetName(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                       const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionGetName, 0, false,
+           "  var.fn() -> Str\n"
+           "Returns the name of the MongoCollection `var`.")
 {
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     return vm.makeVar<VarStr>(loc, coll->getCollectionName());
 }
 
-Var *collectionGetDatabaseName(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                               const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionGetDatabaseName, 0, false,
+           "  var.fn() -> Str\n"
+           "Returns the name of the database which holds the MongoCollection `var`.")
 {
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     return vm.makeVar<VarStr>(loc, coll->getDbName());
 }
 
-Var *collectionLen(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                   const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(collectionLenNative, 2, false, "")
 {
-    if(!args[1]->is<VarBson>()) {
-        vm.fail(loc, "expected a map as the filter, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
+    EXPECT(VarBson, args[1], "map representing the filter");
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     const bson_t *filter     = as<VarBson>(args[1])->getVal();
     const bson_t *opts       = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
@@ -356,15 +305,17 @@ Var *collectionLen(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.makeVar<VarInt>(loc, count);
 }
 
-Var *cursorEach(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(cursorEach, 0, false,
+           "  var.fn() -> MongoCursorIter\n"
+           "Creates and returns and iterator for MongoCursor `var`.")
 {
     VarMongoCursor *curr = as<VarMongoCursor>(args[0]);
     return vm.makeVar<VarMongoCursorIter>(loc, curr->getVal());
 }
 
-Var *cursorIterNext(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                    const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(cursorIterNext, 0, false,
+           "  var.fn() -> Bson | Nil\n"
+           "Returns the next Bson in the MongoCursorIter `var`, or `nil` if nothing remains.")
 {
     VarMongoCursorIter *currIter = as<VarMongoCursorIter>(args[0]);
     const bson_t *bs             = nullptr;
@@ -385,30 +336,36 @@ INIT_MODULE(Mongo)
 
     VarModule *mod = vm.getCurrModule();
 
-    vm.registerType<VarMongoClient>(loc, "MongoClient");
-    vm.registerType<VarMongoCollection>(loc, "MongoCollection");
-    vm.registerType<VarMongoCursor>(loc, "MongoCursor");
-    vm.registerType<VarMongoCursorIter>(loc, "MongoCursorIter");
+    vm.registerType<VarMongoClient>(loc, "MongoClient",
+                                    "Represents a connection to a MongoDB instance.");
+    vm.registerType<VarMongoCollection>(loc, "MongoCollection",
+                                        "Represents a collection in a Mongo database.");
+    vm.registerType<VarMongoCursor>(
+        loc, "MongoCursor",
+        "Represents a return value(s) holder using which an iterator can be created.");
+    vm.registerType<VarMongoCursorIter>(
+        loc, "MongoCursorIter",
+        "Represents an iterator that iterates through items in MongoCursor.");
 
-    mod->addNativeFn(vm, "newClient", newClient, 1);
+    mod->addNativeFn(vm, "newClient", newClient);
 
-    vm.addNativeTypeFn<VarMongoClient>(loc, "getDatabaseNamesNative", clientGetDatabaseNames, 1);
-    vm.addNativeTypeFn<VarMongoClient>(loc, "getCollection", clientGetCollection, 2);
+    vm.addNativeTypeFn<VarMongoClient>(loc, "getDatabaseNamesNative", clientGetDatabaseNamesNative);
+    vm.addNativeTypeFn<VarMongoClient>(loc, "getCollection", clientGetCollection);
 
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "insertOneNative", collectionInsertOne, 2);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "insertManyNative", collectionInsertMany, 2);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "replaceNative", collectionReplace, 3);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "updateOneNative", collectionUpdateOne, 3);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "updateManyNative", collectionUpdateMany, 3);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "deleteOneNative", collectionDeleteOne, 2);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "deleteManyNative", collectionDeleteMany, 2);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "findNative", collectionFind, 2);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "getName", collectionGetName, 0);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "getDatabaseName", collectionGetDatabaseName, 0);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "lenNative", collectionLen, 2);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "insertOneNative", collectionInsertOneNative);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "insertManyNative", collectionInsertManyNative);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "replaceNative", collectionReplaceNative);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "updateOneNative", collectionUpdateOneNative);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "updateManyNative", collectionUpdateManyNative);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "deleteOneNative", collectionDeleteOneNative);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "deleteManyNative", collectionDeleteManyNative);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "findNative", collectionFindNative);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "getName", collectionGetName);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "getDatabaseName", collectionGetDatabaseName);
+    vm.addNativeTypeFn<VarMongoCollection>(loc, "lenNative", collectionLenNative);
 
-    vm.addNativeTypeFn<VarMongoCursor>(loc, "each", cursorEach, 0);
-    vm.addNativeTypeFn<VarMongoCursorIter>(loc, "next", cursorIterNext, 0);
+    vm.addNativeTypeFn<VarMongoCursor>(loc, "each", cursorEach);
+    vm.addNativeTypeFn<VarMongoCursorIter>(loc, "next", cursorIterNext);
 
     return true;
 }

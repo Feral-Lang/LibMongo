@@ -67,31 +67,34 @@ VarBsonArrayBuilder::~VarBsonArrayBuilder()
 /////////////////////////////////////////// Functions ////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-Var *newBson(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-             const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(newBson, 0, false,
+           "  fn() -> Bson\n"
+           "Creates and returns an instance of Bson.")
 {
     return vm.makeVar<VarBson>(loc, bson_new(), true);
 }
 
-Var *newBsonView(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                 const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(newBsonView, 0, false,
+           "  fn() -> Bson\n"
+           "Creates and returns an instance of Bson as a view.\n"
+           "A Bson created using this function does not own any Bson object set to it, therefore "
+           "can use const-qualified Bson objects.")
 {
     return vm.makeVar<VarBson>(loc, nullptr, false);
 }
 
-Var *newBsonArrayBuilder(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                         const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(newBsonArrayBuilder, 0, false,
+           "  fn() -> BsonArrayBuilder\n"
+           "Creates and returns an instance of BsonArrayBuilder.")
 {
     return vm.makeVar<VarBsonArrayBuilder>(loc, bson_array_builder_new(), true);
 }
 
-Var *bsonAppend(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(bsonAppend, 2, false,
+           "  var.fn(key, value) -> Nil\n"
+           "Appends `key` and `value` to Bson `var`.")
 {
-    if(!args[1]->is<VarStr>()) {
-        vm.fail(loc, "Expected the key to be a string, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
+    EXPECT(VarStr, args[1], "key");
     bson_t *bs = as<VarBson>(args[0])->getVal();
     if(!bs) {
         vm.fail(loc, "bson object must be initialized before using here");
@@ -123,13 +126,11 @@ Var *bsonAppend(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.getNil();
 }
 
-Var *bsonArrayBuilderAppend(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                            const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(bsonArrayBuilderAppend, 1, false,
+           "  var.fn(value) -> Nil\n"
+           "Appends `value` to BsonArrayBuilder `var`.")
 {
-    if(!args[1]->is<VarStr>()) {
-        vm.fail(loc, "Expected the key to be a string, found: ", vm.getTypeName(args[1]));
-        return nullptr;
-    }
+    EXPECT(VarStr, args[1], "key");
     bson_array_builder_t *arrBuilder = as<VarBsonArrayBuilder>(args[0])->getVal();
     if(args[1]->is<VarNil>()) {
         bson_array_builder_append_null(arrBuilder);
@@ -156,8 +157,9 @@ Var *bsonArrayBuilderAppend(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return vm.getNil();
 }
 
-Var *bsonArrayBuilderBuild(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                           const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(bsonArrayBuilderBuild, 0, false,
+           "  var.fn() -> Bson\n"
+           "Builds a Bson using BsonArrayBuilder `var` and returns it.")
 {
     VarBsonArrayBuilder *builder = as<VarBsonArrayBuilder>(args[0]);
     VarBson *res                 = vm.makeVar<VarBson>(loc, bson_new(), true);
@@ -165,8 +167,9 @@ Var *bsonArrayBuilderBuild(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return res;
 }
 
-Var *bsonToStr(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-               const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(bsonToStr, 0, false,
+           "  var.fn() -> Str\n"
+           "Creates and returns a string representation of Bson `var`.")
 {
     const bson_t *bs = as<VarBson>(args[0])->getVal();
     if(!bs) {
@@ -180,8 +183,9 @@ Var *bsonToStr(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
     return res;
 }
 
-Var *bsonToBytebuffer(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
-                      const StringMap<AssnArgData> &assnArgs)
+FERAL_FUNC(bsonToBytebuffer, 0, false,
+           "  var.fn() -> Bytebuffer\n"
+           "Creates and returns a Bytebuffer representation of Bson `var`.")
 {
     const bson_t *bs = as<VarBson>(args[0])->getVal();
     if(!bs) {
@@ -194,8 +198,10 @@ Var *bsonToBytebuffer(VirtualMachine &vm, ModuleLoc loc, Span<Var *> args,
 
 INIT_MODULE(Bson)
 {
-    vm.registerType<VarBson>(loc, "Bson");
-    vm.registerType<VarBsonArrayBuilder>(loc, "BsonArrayBuilder");
+    vm.registerType<VarBson>(loc, "Bson", "A Bson object used primarily with MongoDB.");
+    vm.registerType<VarBsonArrayBuilder>(
+        loc, "BsonArrayBuilder",
+        "A Bson Array Builder used to build a Bson array, one element at a time.");
 
     VarModule *mod = vm.getCurrModule();
 
@@ -203,12 +209,12 @@ INIT_MODULE(Bson)
     mod->addNativeFn(vm, "newView", newBsonView);
     mod->addNativeFn(vm, "newArrayBuilder", newBsonArrayBuilder);
 
-    vm.addNativeTypeFn<VarBson>(loc, "append", bsonAppend, 2);
-    vm.addNativeTypeFn<VarBson>(loc, "str", bsonToStr, 0);
-    vm.addNativeTypeFn<VarBson>(loc, "bytes", bsonToBytebuffer, 0);
+    vm.addNativeTypeFn<VarBson>(loc, "append", bsonAppend);
+    vm.addNativeTypeFn<VarBson>(loc, "str", bsonToStr);
+    vm.addNativeTypeFn<VarBson>(loc, "bytes", bsonToBytebuffer);
 
-    vm.addNativeTypeFn<VarBsonArrayBuilder>(loc, "append", bsonArrayBuilderAppend, 1);
-    vm.addNativeTypeFn<VarBsonArrayBuilder>(loc, "build", bsonArrayBuilderBuild, 0);
+    vm.addNativeTypeFn<VarBsonArrayBuilder>(loc, "append", bsonArrayBuilderAppend);
+    vm.addNativeTypeFn<VarBsonArrayBuilder>(loc, "build", bsonArrayBuilderBuild);
     return true;
 }
 

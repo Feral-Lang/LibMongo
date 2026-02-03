@@ -4,24 +4,28 @@ let map = import('std/map');
 let vec = import('std/vec');
 let bson = import('mongo/bson');
 
-# let getDatabaseNamesX in MongoCollectionTy = fn() {
-#     let dbNames = vec.new();
-#     for db in self.getDatabases().each() {
-#         dbNames.push(db.getName());
-#     }
-#     return dbNames;
-# };
-
+"
+  var.fn(opts = nil) -> Vec<Str>
+Returns a list of names of databases using the MongoClient `var`.
+"
 let getDatabaseNames in MongoClientTy = fn(opts = nil) {
     return self.getDatabaseNamesNative(opts ? opts.bson() : opts);
 };
 
-# data => a map
+"
+  var.fn(data, opts = nil) -> Nil
+Inserts `data` in the MongoCollection `var`.
+Here, `data` represents a Map.
+"
 let insertOne in MongoCollectionTy = fn(data, opts = nil) {
     return self.insertOneNative(data.bson(), opts ? opts.bson() : opts);
 };
 
-# data => a vector of maps
+"
+  var.fn(data, opts = nil) -> Nil
+Inserts `data` in the MongoCollection `var`.
+Here, `data` represents a Vec<Map>. Unlike `insertOne()`, this function batch inserts all the maps in data.
+"
 let insertMany in MongoCollectionTy = fn(data, opts = nil) {
     let bsonList = vec.new(refs = true);
     for e in data.each() {
@@ -30,35 +34,67 @@ let insertMany in MongoCollectionTy = fn(data, opts = nil) {
     return self.insertManyNative(bsonList, opts ? opts.bson() : opts);
 };
 
-# data => a map
+"
+  var.fn(filter, data, opts = nil) -> Nil
+Replaces items filtered using `filter` with `data` in the MongoCollection `var`.
+Here, `filter` and `data` each represent a Map.
+"
 let replace in MongoCollectionTy = fn(filter, data, opts = nil) {
     return self.replaceNative(filter.bson(), data.bson(), opts ? opts.bson() : opts);
 };
 
-# data => a map
+"
+  var.fn(filter, data, opts = nil) -> Nil
+Updates first item filtered using `filter` with `data` in the MongoCollection `var`.
+Here, `filter` and `data` each represent a Map.
+Unlike `replace()`, this function does not clear out any existing fields.
+"
 let updateOne in MongoCollectionTy = fn(filter, data, opts = nil) {
     return self.updateOneNative(filter.bson(), data.bson(), opts ? opts.bson() : opts);
 };
 
-# data => a vector of maps
+"
+  var.fn(filter, data, opts = nil) -> Nil
+Updates all items filtered using `filter` with `data` in the MongoCollection `var`.
+Here, `filter` and `data` each represent a Map.
+Unlike `replace()`, this function does not clear out any existing fields.
+"
 let updateMany in MongoCollectionTy = fn(filter, data, opts = nil) {
     return self.updateManyNative(filter.bson(), data.bson(), opts ? opts.bson() : opts);
 };
 
-# data => a map
+"
+  var.fn(filter, opts = nil) -> Nil
+Deletes first item filtered using `filter` in the MongoCollection `var`.
+Here, `filter` represents a Map.
+"
 let deleteOne in MongoCollectionTy = fn(filter, opts = nil) {
     return self.deleteOneNative(filter.bson(), opts ? opts.bson() : opts);
 };
 
-# data => a vector of maps
+"
+  var.fn(filter, opts = nil) -> Nil
+Deletes all items filtered using `filter` in the MongoCollection `var`.
+Here, `filter` represents a Map.
+"
 let deleteMany in MongoCollectionTy = fn(filter, opts = nil) {
     return self.deleteManyNative(filter.bson(), opts ? opts.bson() : opts);
 };
 
+"
+  var.fn(filter = map.new(), opts = nil) -> MongoCursor
+Finds all data entries in the MongoCollection `var` which satisfy the `filter`.
+Returns a MongoCursor which can be used to iterate on all the find results.
+"
 let find in MongoCollectionTy = fn(filter = map.new(), opts = nil) {
     return self.findNative(filter.bson(), opts ? opts.bson() : opts);
 };
 
+"
+  var.fn(filter = map.new(), opts = nil) -> Int
+Finds all data entries in the MongoCollection `var` which satisfy the `filter`.
+Returns a count of the matched entries.
+"
 let len in MongoCollectionTy = fn(filter = map.new(), opts = nil) {
     return self.lenNative(filter.bson(), opts ? opts.bson() : opts);
 };
