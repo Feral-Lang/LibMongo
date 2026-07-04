@@ -10,7 +10,7 @@ namespace fer
 /////////////////////////////////////// VarMongoClient ///////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-VarMongoClient::VarMongoClient(ModuleLoc loc, const char *uriStr) : Var(loc, false, false)
+VarMongoClient::VarMongoClient(ModuleLoc loc, const char *uriStr) : Var(loc)
 {
     val = mongoc_client_new(uriStr);
 }
@@ -22,19 +22,19 @@ VarMongoClient::~VarMongoClient() { mongoc_client_destroy(val); }
 
 VarMongoCollection::VarMongoCollection(ModuleLoc loc, VarMongoClient *client, StringRef dbName,
                                        StringRef collectionName)
-    : Var(loc, false, false), parent(client), dbName(dbName), collName(collectionName)
+    : Var(loc), parent(client), dbName(dbName), collName(collectionName)
 {}
 VarMongoCollection::~VarMongoCollection() {}
 
-void VarMongoCollection::onCreate(MemoryManager &mem)
+void VarMongoCollection::onCreate(VirtualMachine &vm)
 {
-    Var::incVarRef(parent);
+    vm.incVarRef(parent);
     val = mongoc_client_get_collection(parent->getVal(), dbName.c_str(), collName.c_str());
 }
-void VarMongoCollection::onDestroy(MemoryManager &mem)
+void VarMongoCollection::onDestroy(VirtualMachine &vm)
 {
     mongoc_collection_destroy(val);
-    Var::decVarRef(mem, parent);
+    vm.decVarRef(parent);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,15 +43,15 @@ void VarMongoCollection::onDestroy(MemoryManager &mem)
 
 VarMongoCursor::VarMongoCursor(ModuleLoc loc, VarMongoCollection *collection,
                                mongoc_cursor_t *cursor)
-    : Var(loc, false, false), parent(collection), val(cursor)
+    : Var(loc), parent(collection), val(cursor)
 {}
 VarMongoCursor::~VarMongoCursor() {}
 
-void VarMongoCursor::onCreate(MemoryManager &mem) { Var::incVarRef(parent); }
-void VarMongoCursor::onDestroy(MemoryManager &mem)
+void VarMongoCursor::onCreate(VirtualMachine &vm) { vm.incVarRef(parent); }
+void VarMongoCursor::onDestroy(VirtualMachine &vm)
 {
     mongoc_cursor_destroy(val);
-    Var::decVarRef(mem, parent);
+    vm.decVarRef(parent);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -59,7 +59,7 @@ void VarMongoCursor::onDestroy(MemoryManager &mem)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 VarMongoCursorIter::VarMongoCursorIter(ModuleLoc loc, mongoc_cursor_t *cursor)
-    : Var(loc, false, false), val(cursor), iter(nullptr)
+    : Var(loc), val(cursor), iter(nullptr)
 {}
 VarMongoCursorIter::~VarMongoCursorIter() {}
 
@@ -94,7 +94,7 @@ FERAL_FUNC(clientGetDatabaseNamesNative, 0, false, "")
         return nullptr;
     }
     VarVec *res = vm.makeVar<VarVec>(loc, 0, false);
-    for(size_t i = 0; dbs[i]; ++i) res->push(vm.makeVarWithRef<VarStr>(loc, dbs[i]));
+    for(size_t i = 0; dbs[i]; ++i) res->push(vm, vm.makeVar<VarStr>(loc, dbs[i]), true);
     bson_strfreev(dbs);
     return res;
 }
@@ -330,46 +330,44 @@ FERAL_FUNC(cursorIterNext, 0, false,
     return res;
 }
 
-INIT_MODULE(Mongo)
+INIT_DLL(Mongo)
 {
     mongoc_init();
 
-    VarModule *mod = vm.getCurrModule();
-
-    vm.registerType<VarMongoClient>(loc, "MongoClient",
+    vm.addLocalType<VarMongoClient>(loc, "MongoClient",
                                     "Represents a connection to a MongoDB instance.");
-    vm.registerType<VarMongoCollection>(loc, "MongoCollection",
+    vm.addLocalType<VarMongoCollection>(loc, "MongoCollection",
                                         "Represents a collection in a Mongo database.");
-    vm.registerType<VarMongoCursor>(
+    vm.addLocalType<VarMongoCursor>(
         loc, "MongoCursor",
         "Represents a return value(s) holder using which an iterator can be created.");
-    vm.registerType<VarMongoCursorIter>(
+    vm.addLocalType<VarMongoCursorIter>(
         loc, "MongoCursorIter",
         "Represents an iterator that iterates through items in MongoCursor.");
 
-    mod->addNativeFn(vm, "newClient", newClient);
+    vm.addLocal(loc, "newClient", newClient);
 
-    vm.addNativeTypeFn<VarMongoClient>(loc, "getDatabaseNamesNative", clientGetDatabaseNamesNative);
-    vm.addNativeTypeFn<VarMongoClient>(loc, "getCollection", clientGetCollection);
+    vm.addTypeFn<VarMongoClient>(loc, "getDatabaseNamesNative", clientGetDatabaseNamesNative);
+    vm.addTypeFn<VarMongoClient>(loc, "getCollection", clientGetCollection);
 
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "insertOneNative", collectionInsertOneNative);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "insertManyNative", collectionInsertManyNative);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "replaceNative", collectionReplaceNative);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "updateOneNative", collectionUpdateOneNative);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "updateManyNative", collectionUpdateManyNative);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "deleteOneNative", collectionDeleteOneNative);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "deleteManyNative", collectionDeleteManyNative);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "findNative", collectionFindNative);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "getName", collectionGetName);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "getDatabaseName", collectionGetDatabaseName);
-    vm.addNativeTypeFn<VarMongoCollection>(loc, "lenNative", collectionLenNative);
+    vm.addTypeFn<VarMongoCollection>(loc, "insertOneNative", collectionInsertOneNative);
+    vm.addTypeFn<VarMongoCollection>(loc, "insertManyNative", collectionInsertManyNative);
+    vm.addTypeFn<VarMongoCollection>(loc, "replaceNative", collectionReplaceNative);
+    vm.addTypeFn<VarMongoCollection>(loc, "updateOneNative", collectionUpdateOneNative);
+    vm.addTypeFn<VarMongoCollection>(loc, "updateManyNative", collectionUpdateManyNative);
+    vm.addTypeFn<VarMongoCollection>(loc, "deleteOneNative", collectionDeleteOneNative);
+    vm.addTypeFn<VarMongoCollection>(loc, "deleteManyNative", collectionDeleteManyNative);
+    vm.addTypeFn<VarMongoCollection>(loc, "findNative", collectionFindNative);
+    vm.addTypeFn<VarMongoCollection>(loc, "getName", collectionGetName);
+    vm.addTypeFn<VarMongoCollection>(loc, "getDatabaseName", collectionGetDatabaseName);
+    vm.addTypeFn<VarMongoCollection>(loc, "lenNative", collectionLenNative);
 
-    vm.addNativeTypeFn<VarMongoCursor>(loc, "each", cursorEach);
-    vm.addNativeTypeFn<VarMongoCursorIter>(loc, "next", cursorIterNext);
+    vm.addTypeFn<VarMongoCursor>(loc, "each", cursorEach);
+    vm.addTypeFn<VarMongoCursorIter>(loc, "next", cursorIterNext);
 
     return true;
 }
 
-DEINIT_MODULE(Mongo) { mongoc_cleanup(); }
+DEINIT_DLL(Mongo) { mongoc_cleanup(); }
 
 } // namespace fer

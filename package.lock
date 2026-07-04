@@ -8,7 +8,7 @@ deps = [
     },
     {
         isFeral = true;
-        sha256 = "637c66c92ac8ebbb4eeb59e51fdfdc5846e4165048abac98687f4b3f26df8fca";
+        sha256 = "7ef835eb29422485bcf4096a3b56b9000bb8826c14dcb81c3473f6001656a594";
         url = "https://github.com/Feral-Lang/LibBson/archive/refs/tags/0.1.0.tar.gz";
         constraint = ">=0.1.0";
         name = "Bson";

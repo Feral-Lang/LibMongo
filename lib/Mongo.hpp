@@ -1,7 +1,7 @@
 #pragma once
 
 #include <mongoc/mongoc.h>
-#include <VM/Interpreter.hpp>
+#include <VM/VM.hpp>
 
 namespace fer
 {
@@ -32,8 +32,8 @@ class VarMongoCollection : public Var
     String dbName;
     String collName;
 
-    void onCreate(MemoryManager &mem) override;
-    void onDestroy(MemoryManager &mem) override;
+    void onCreate(VirtualMachine &vm) override;
+    void onDestroy(VirtualMachine &vm) override;
 
 public:
     // Must store client to make sure it does not get deleted before the collection does.
@@ -55,8 +55,8 @@ class VarMongoCursor : public Var
     VarMongoCollection *parent;
     mongoc_cursor_t *val;
 
-    void onCreate(MemoryManager &mem) override;
-    void onDestroy(MemoryManager &mem) override;
+    void onCreate(VirtualMachine &vm) override;
+    void onDestroy(VirtualMachine &vm) override;
 
 public:
     // Must store collection to make sure it does not get deleted before the cursor does.
