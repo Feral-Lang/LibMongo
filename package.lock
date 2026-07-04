@@ -1,0 +1,23 @@
+deps = [
+    {
+        isFeral = false;
+        sha256 = "";
+        url = "";
+        constraint = ">=2.3.0";
+        name = "mongoc2";
+    },
+    {
+        isFeral = true;
+        sha256 = "637c66c92ac8ebbb4eeb59e51fdfdc5846e4165048abac98687f4b3f26df8fca";
+        url = "https://github.com/Feral-Lang/LibBson/archive/refs/tags/0.1.0.tar.gz";
+        constraint = ">=0.1.0";
+        name = "Bson";
+    },
+    {
+        isFeral = false;
+        name = "bson2";
+        constraint = ">=2.3.0";
+        sha256 = "";
+        url = "";
+    }
+];

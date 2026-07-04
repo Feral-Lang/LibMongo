@@ -1,0 +1,16 @@
+let vec = import('std/vec');
+let package = import('std/package');
+
+let pkg = package.new(
+    name = 'Mongo',
+    desc = 'Mongo DB (and BSON) bindings for Feral using the Mongo-C-Driver library.',
+    version = '0.1.0',
+    feral = '>=2.2.1',
+    author = vec.new('Chirag-Khandelwal <github@mail.chiragkh.me>')
+);
+
+pkg.requires('mongoc2', version = '>=2.3.0');
+
+pkg.requires('Bson', version = '>=0.1.0', feral = true);
+
+pkg.addTarget('Mongo', 'Mongo.cpp');
