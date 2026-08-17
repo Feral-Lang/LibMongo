@@ -2,7 +2,8 @@ loadlib('mongo/Mongo');
 
 let map = import('std/map');
 let vec = import('std/vec');
-let bson = import('bson/bson');
+
+let bson = import('mongo/bson');
 
 "
   var.fn(opts = nil) -> Vec<Str>

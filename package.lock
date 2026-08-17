@@ -4,20 +4,13 @@ deps = [
         sha256 = "";
         url = "";
         constraint = ">=2.3.0";
-        name = "mongoc2";
-    },
-    {
-        isFeral = true;
-        sha256 = "7ef835eb29422485bcf4096a3b56b9000bb8826c14dcb81c3473f6001656a594";
-        url = "https://github.com/Feral-Lang/LibBson/archive/refs/tags/0.1.0.tar.gz";
-        constraint = ">=0.1.0";
-        name = "Bson";
+        name = "bson2";
     },
     {
         isFeral = false;
-        name = "bson2";
-        constraint = ">=2.3.0";
         sha256 = "";
         url = "";
+        constraint = ">=2.3.0";
+        name = "mongoc2";
     }
 ];

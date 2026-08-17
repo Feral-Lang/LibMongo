@@ -1,16 +1,26 @@
 let vec = import('std/vec');
 let package = import('std/package');
 
-let pkg = package.new(
-    name = 'Mongo',
-    desc = 'Mongo DB (and BSON) bindings for Feral using the Mongo-C-Driver library.',
-    version = '0.1.0',
-    feral = '>=2.2.1',
-    author = vec.new('Chirag-Khandelwal <github@mail.chiragkh.me>')
-);
+let configure = fn(info) {
+    let pkg = package.new(
+        'Mongo',
+        desc = 'Mongo DB (and BSON) bindings for Feral using the Mongo-C-Driver library.',
+        version = '0.2.0',
+        feral = '>=2.2.1',
+        author = vec.new('Chirag-Khandelwal <github@mail.chiragkh.me>')
+    );
 
-pkg.requires('mongoc2', version = '>=2.3.0');
+    pkg.requires('bson2', version = '>=2.3.0');
+    pkg.requires('mongoc2', version = '>=2.3.0');
 
-pkg.requires('Bson', version = '>=0.1.0', feral = true);
+    let bsonTarget = pkg.addTarget('Bson');
+    bsonTarget.addHeaders(info.pkgRoot / 'lib' / 'Bson.hpp');
+    bsonTarget.addSources(info.pkgRoot / 'lib' / 'Bson.cpp');
 
-pkg.addTarget('Mongo', 'Mongo.cpp');
+    let mongoTarget = pkg.addTarget('Mongo');
+    mongoTarget.requires(bsonTarget);
+    mongoTarget.addHeaders(info.pkgRoot / 'lib' / 'Mongo.hpp');
+    mongoTarget.addSources(info.pkgRoot / 'lib' / 'Mongo.cpp');
+
+    return feral.ok(pkg);
+};
