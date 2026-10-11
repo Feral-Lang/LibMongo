@@ -11,9 +11,7 @@ namespace fer
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 VarMongoClient::VarMongoClient(ModuleLoc loc, const char *uriStr) : Var(loc)
-{
-    val = mongoc_client_new(uriStr);
-}
+{ val = mongoc_client_new(uriStr); }
 VarMongoClient::~VarMongoClient() { mongoc_client_destroy(val); }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -80,7 +78,7 @@ FERAL_FUNC(newClient, 1, false,
            "Creates and returns a connection to the MongoDB `url`.")
 {
     EXPECT(VarStr, args[1], "connection uri");
-    return vm.makeVar<VarMongoClient>(loc, as<VarStr>(args[1])->getVal().c_str());
+    return vm.makeVar<VarMongoClient>(loc, as<VarStr>(args[1])->cStr());
 }
 
 FERAL_FUNC(clientGetDatabaseNamesNative, 0, false, "")
@@ -137,18 +135,18 @@ FERAL_FUNC(collectionInsertManyNative, 2, false, "")
     VarMongoCollection *coll = as<VarMongoCollection>(args[0]);
     VarVec *docsVec          = as<VarVec>(args[1]);
     size_t docsCount         = docsVec->size();
-    const bson_t **docs =
-        (const bson_t **)vm.getMemoryManager().allocRaw(docsVec->size(), alignof(_bson_t));
+    auto &allocator          = vm.getMemoryAllocator();
+    const bson_t **docs      = (const bson_t **)allocator.allocRaw(docsVec->size());
     for(size_t i = 0; i < docsCount; ++i) { docs[i] = as<VarBson>(docsVec->at(i))->getVal(); }
     const bson_t *opts = args[2]->is<VarBson>() ? as<VarBson>(args[2])->getVal() : nullptr;
     bson_error_t berr;
     if(!mongoc_collection_insert_many(coll->getVal(), docs, docsCount, opts, nullptr, &berr)) {
         vm.fail(loc, "failed to insert document list in collection: ",
                 mongoc_collection_get_name(coll->getVal()), "; mongo err: ", berr.message);
-        vm.getMemoryManager().freeRaw(docs);
+        allocator.freeRaw(docs);
         return nullptr;
     }
-    vm.getMemoryManager().freeRaw(docs);
+    allocator.freeRaw(docs);
     return vm.getNil();
 }
 

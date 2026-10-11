@@ -63,25 +63,19 @@ VarBsonArrayBuilder::~VarBsonArrayBuilder()
 FERAL_FUNC(newBson, 0, false,
            "  fn() -> Bson\n"
            "Creates and returns an instance of Bson.")
-{
-    return vm.makeVar<VarBson>(loc, bson_new(), true);
-}
+{ return vm.makeVar<VarBson>(loc, bson_new(), true); }
 
 FERAL_FUNC(newBsonView, 0, false,
            "  fn() -> Bson\n"
            "Creates and returns an instance of Bson as a view.\n"
            "A Bson created using this function does not own any Bson object set to it, therefore "
            "can use const-qualified Bson objects.")
-{
-    return vm.makeVar<VarBson>(loc, nullptr, false);
-}
+{ return vm.makeVar<VarBson>(loc, nullptr, false); }
 
 FERAL_FUNC(newBsonArrayBuilder, 0, false,
            "  fn() -> BsonArrayBuilder\n"
            "Creates and returns an instance of BsonArrayBuilder.")
-{
-    return vm.makeVar<VarBsonArrayBuilder>(loc, bson_array_builder_new(), true);
-}
+{ return vm.makeVar<VarBsonArrayBuilder>(loc, bson_array_builder_new(), true); }
 
 FERAL_FUNC(bsonAppend, 2, false,
            "  var.fn(key, value) -> Nil\n"
@@ -93,27 +87,27 @@ FERAL_FUNC(bsonAppend, 2, false,
         vm.fail(loc, "bson object must be initialized before using here");
         return nullptr;
     }
-    const String &key = as<VarStr>(args[1])->getVal();
+    StringRef key = as<VarStr>(args[1])->getVal();
     if(args[2]->is<VarNil>()) {
-        bson_append_null(bs, key.c_str(), key.size());
+        bson_append_null(bs, key.data(), key.size());
     } else if(args[2]->is<VarBool>()) {
-        bson_append_bool(bs, key.c_str(), key.size(), as<VarBool>(args[2])->getVal());
+        bson_append_bool(bs, key.data(), key.size(), as<VarBool>(args[2])->getVal());
     } else if(args[2]->is<VarInt>()) {
-        bson_append_int64(bs, key.c_str(), key.size(), as<VarInt>(args[2])->getVal());
+        bson_append_int64(bs, key.data(), key.size(), as<VarInt>(args[2])->getVal());
     } else if(args[2]->is<VarFlt>()) {
-        bson_append_double(bs, key.c_str(), key.size(), as<VarFlt>(args[2])->getVal());
+        bson_append_double(bs, key.data(), key.size(), as<VarFlt>(args[2])->getVal());
     } else if(args[2]->is<VarStr>()) {
-        const String &val = as<VarStr>(args[2])->getVal();
-        bson_append_utf8(bs, key.c_str(), key.size(), val.c_str(), val.size());
+        StringRef val = as<VarStr>(args[2])->getVal();
+        bson_append_utf8(bs, key.data(), key.size(), val.data(), val.size());
     } else if(args[2]->is<VarBson>()) {
         const bson_t *val = as<VarBson>(args[2])->getVal();
-        bson_append_document(bs, key.c_str(), key.size(), val);
+        bson_append_document(bs, key.data(), key.size(), val);
     } else {
         Var *v = nullptr;
         Array<Var *, 1> tmp{args[2]};
         if(!vm.callVarAndExpect<VarBson>(loc, "bson", v, tmp, {})) return nullptr;
         bson_t *data = as<VarBson>(v)->getVal();
-        bson_append_document(bs, key.c_str(), key.size(), data);
+        bson_append_document(bs, key.data(), key.size(), data);
         vm.decVarRef(v);
     }
     return vm.getNil();
@@ -134,8 +128,8 @@ FERAL_FUNC(bsonArrayBuilderAppend, 1, false,
     } else if(args[1]->is<VarFlt>()) {
         bson_array_builder_append_double(arrBuilder, as<VarFlt>(args[1])->getVal());
     } else if(args[1]->is<VarStr>()) {
-        const String &val = as<VarStr>(args[1])->getVal();
-        bson_array_builder_append_utf8(arrBuilder, val.c_str(), val.size());
+        StringRef val = as<VarStr>(args[1])->getVal();
+        bson_array_builder_append_utf8(arrBuilder, val.data(), val.size());
     } else if(args[1]->is<VarBson>()) {
         const bson_t *val = as<VarBson>(args[1])->getVal();
         bson_array_builder_append_document(arrBuilder, val);
